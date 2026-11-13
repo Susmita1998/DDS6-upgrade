@@ -1,0 +1,222 @@
+[
+  {
+    "test_case_id": "TC_001",
+    "question": "Our finance team is trying to work out how long we've got to pay Vendor Labs' invoices. What's the deadline?",
+    "question_type": "Factoid",
+    "difficulty": "Easy",
+    "expected_answer": "Customer must pay the fees in each Statement of Work within thirty (30) days of invoice.",
+    "ground_truth_context_ids": ["msa_acme_vendor#2.1"],
+    "retrieval_keywords": ["payment terms", "net 30", "thirty days", "invoice due date", "fees", "Statement of Work"],
+    "intent_category": "Payment Terms",
+    "reasoning_notes": "Single-chunk lookup of a numeric payment term. Tests exact-match retrieval of the number and that the answer is not padded with unrelated payment clauses."
+  },
+  {
+    "test_case_id": "TC_002",
+    "question": "If our AP team pays a Vendor Labs bill a bit late, what interest rate applies to the overdue amount?",
+    "question_type": "Factoid",
+    "difficulty": "Easy",
+    "expected_answer": "Overdue amounts under the Master Services Agreement accrue interest at 1.0% per month.",
+    "ground_truth_context_ids": ["msa_acme_vendor#2.2"],
+    "retrieval_keywords": ["late payment", "overdue interest", "1.0% per month", "late fee", "interest rate", "overdue amounts"],
+    "intent_category": "Payment Terms",
+    "reasoning_notes": "Colloquial phrasing ('a bit late', 'bill') with no shared wording beyond the entity name. Tests semantic matching against the formal term 'overdue amounts'."
+  },
+  {
+    "test_case_id": "TC_003",
+    "question": "How long is the mutual NDA between Acme and Vendor Labs valid for?",
+    "question_type": "Factoid",
+    "difficulty": "Easy",
+    "expected_answer": "The NDA lasts two (2) years from the Effective Date.",
+    "ground_truth_context_ids": ["nda_mutual#3.1"],
+    "retrieval_keywords": ["NDA term", "duration", "expiry", "two years", "Effective Date", "mutual non-disclosure"],
+    "intent_category": "Contract Term",
+    "reasoning_notes": "Factoid about the NDA. Disambiguates from the MSA's three-year term, so a retriever that matches the MSA term instead will fail."
+  },
+  {
+    "test_case_id": "TC_004",
+    "question": "If Vendor Labs has a security incident involving our customers' personal data, how fast do they have to tell us?",
+    "question_type": "Factoid",
+    "difficulty": "Easy",
+    "expected_answer": "Vendor must notify Customer of a breach involving personal data within 72 hours.",
+    "ground_truth_context_ids": ["msa_acme_vendor#7.1"],
+    "retrieval_keywords": ["breach notification", "72 hours", "personal data", "security incident", "data breach", "notify"],
+    "intent_category": "Data Protection",
+    "reasoning_notes": "The user says 'security incident' where the document says 'breach'. Tests synonym handling in dense retrieval and keyword coverage in BM25."
+  },
+  {
+    "test_case_id": "TC_005",
+    "question": "If we end up in a dispute over the MSA, which state's law decides it?",
+    "question_type": "Factoid",
+    "difficulty": "Easy",
+    "expected_answer": "The Master Services Agreement is governed by the laws of the State of Delaware, without regard to conflict of laws principles.",
+    "ground_truth_context_ids": ["msa_acme_vendor#11.1"],
+    "retrieval_keywords": ["governing law", "choice of law", "Delaware", "conflict of laws", "jurisdiction", "dispute"],
+    "intent_category": "Governing Law",
+    "reasoning_notes": "Tests retrieval of the governing-law clause when the user asks about disputes. Fails if the retriever only matches on the word 'law'."
+  },
+  {
+    "test_case_id": "TC_006",
+    "question": "We think Vendor Labs is in material breach. If we send them notice, how long do they have before we can walk away?",
+    "question_type": "Complex/Reasoning",
+    "difficulty": "Medium",
+    "expected_answer": "Under Section 9.2, either party may terminate on thirty (30) days' written notice if the other party materially breaches and fails to cure within that period. The breaching party therefore gets 30 days to cure before termination can take effect.",
+    "ground_truth_context_ids": ["msa_acme_vendor#9.2"],
+    "retrieval_keywords": ["termination for cause", "material breach", "cure period", "written notice", "thirty days", "terminate agreement"],
+    "intent_category": "Termination",
+    "reasoning_notes": "Applies the termination rule to a scenario. The answer must explain the notice-then-cure sequence, not just repeat the 30-day figure."
+  },
+  {
+    "test_case_id": "TC_007",
+    "question": "We don't want the MSA rolling over again. How much heads-up do we need to give to stop the automatic renewal?",
+    "question_type": "Complex/Reasoning",
+    "difficulty": "Medium",
+    "expected_answer": "Either party must give ninety (90) days' notice of non-renewal. If no such notice is given, the Agreement renews automatically for successive one-year terms.",
+    "ground_truth_context_ids": ["msa_acme_vendor#9.3"],
+    "retrieval_keywords": ["auto-renewal", "non-renewal notice", "ninety days", "rollover", "renewal term", "one-year term"],
+    "intent_category": "Renewal",
+    "reasoning_notes": "Requires reasoning about what happens by default if notice is missed, not just recalling the notice period."
+  },
+  {
+    "test_case_id": "TC_008",
+    "question": "Our vendor's engineers were grossly negligent with our data. Is there a dollar ceiling on what we can recover from them?",
+    "question_type": "Complex/Reasoning",
+    "difficulty": "Medium",
+    "expected_answer": "No. The liability cap in Section 4.1 does not apply to gross negligence or willful misconduct, according to Section 4.3.",
+    "ground_truth_context_ids": ["msa_acme_vendor#4.3"],
+    "retrieval_keywords": ["liability cap", "limitation of liability", "gross negligence", "willful misconduct", "carve-out", "damages ceiling"],
+    "intent_category": "Liability",
+    "reasoning_notes": "The user's wording ('dollar ceiling') is a paraphrase of 'cap'. The model must apply the carve-out to the scenario and not stop at the general cap rule."
+  },
+  {
+    "test_case_id": "TC_009",
+    "question": "We shared an algorithm we treat as a trade secret with Vendor Labs under the NDA. It's been over two years now. Are they still bound?",
+    "question_type": "Complex/Reasoning",
+    "difficulty": "Medium",
+    "expected_answer": "The NDA lasts two years from the Effective Date, but obligations for trade secrets survive for as long as the information remains a trade secret. So if the algorithm is still a trade secret, Vendor Labs remains bound after the two-year term.",
+    "ground_truth_context_ids": ["nda_mutual#3.1", "nda_mutual#3.2"],
+    "retrieval_keywords": ["trade secret", "survival", "obligations survive", "two-year term", "confidentiality period", "algorithm"],
+    "intent_category": "Confidentiality",
+    "reasoning_notes": "Two NDA clauses must be combined: the general term and the trade-secret exception. A model that reads only 3.1 will wrongly say the obligation has expired."
+  },
+  {
+    "test_case_id": "TC_010",
+    "question": "Vendor Labs' invoice for $10,000 is about a month overdue. How much interest is that?",
+    "question_type": "Complex/Reasoning",
+    "difficulty": "Medium",
+    "expected_answer": "Overdue amounts accrue interest at 1.0% per month, so about $100 for one month on a $10,000 overdue balance. The documentation does not say whether interest compounds or how partial months are counted.",
+    "ground_truth_context_ids": ["msa_acme_vendor#2.2"],
+    "retrieval_keywords": ["late interest", "overdue balance", "1.0% per month", "interest calculation", "$10,000", "compounding"],
+    "intent_category": "Payment Terms",
+    "reasoning_notes": "Requires arithmetic on a clause value. The answer must also flag what the context does not say, so a model that invents compounding rules fails."
+  },
+  {
+    "test_case_id": "TC_011",
+    "question": "After the amendment, what's our cap if Vendor Labs leaks personal data, and does the regular liability cap still apply to that?",
+    "question_type": "Multi-Hop",
+    "difficulty": "Hard",
+    "expected_answer": "Vendor's liability for a breach of Article 7 (personal data processing) is capped at three times (3x) the annual fees. That data breach cap is not subject to the general liability cap in Section 4.1.",
+    "ground_truth_context_ids": ["amendment_01_msa#1.2", "msa_acme_vendor#7.1"],
+    "retrieval_keywords": ["data breach liability", "personal data", "3x annual fees", "Article 7", "liability cap amendment", "data protection"],
+    "intent_category": "Liability",
+    "reasoning_notes": "The amendment says 'breach of Article 7' without describing Article 7. The answer depends on the MSA's Article 7 (personal data). Neither chunk alone is enough."
+  },
+  {
+    "test_case_id": "TC_012",
+    "question": "Does the liability cap protect Vendor Labs if they breach our confidentiality, and what number does the general cap use now?",
+    "question_type": "Multi-Hop",
+    "difficulty": "Hard",
+    "expected_answer": "No. Breach of Article 6 (Confidentiality) is carved out of the cap under Section 4.3. For other claims, the amended Section 4.1 caps each party's aggregate liability at two times (2x) the fees paid in the twelve months before the claim.",
+    "ground_truth_context_ids": ["msa_acme_vendor#4.3", "amendment_01_msa#1.1"],
+    "retrieval_keywords": ["confidentiality carve-out", "liability cap", "2x fees", "twelve months", "amended section 4.1", "Article 6"],
+    "intent_category": "Liability",
+    "reasoning_notes": "The answer needs the original carve-out in 4.3 and the replacement cap in amendment 1.1. A retriever that returns only the original 4.1 cap gives the wrong multiplier."
+  },
+  {
+    "test_case_id": "TC_013",
+    "question": "We're ending the MSA for cause. Once it's over, how long do the confidentiality duties last?",
+    "question_type": "Multi-Hop",
+    "difficulty": "Hard",
+    "expected_answer": "Termination for cause requires thirty (30) days' written notice after a material breach that is not cured in that period (Section 9.2). Confidentiality obligations then survive for five (5) years after termination (Section 6.2).",
+    "ground_truth_context_ids": ["msa_acme_vendor#9.2", "msa_acme_vendor#6.2"],
+    "retrieval_keywords": ["termination for cause", "confidentiality survival", "five years", "post-termination", "written notice", "cure"],
+    "intent_category": "Termination",
+    "reasoning_notes": "Joins the termination mechanism (9.2) with the survival period (6.2). Neither chunk alone answers the question."
+  },
+  {
+    "test_case_id": "TC_014",
+    "question": "If the other side gets an injunction against us under the NDA, does that cut off our right to claim damages under the MSA?",
+    "question_type": "Multi-Hop",
+    "difficulty": "Hard",
+    "expected_answer": "No. Under Section 4.1 of the NDA, the non-breaching party may seek an injunction without posting bond. Section 4.2 of the NDA states that Section 4.1 does not limit damages claims under the Master Services Agreement.",
+    "ground_truth_context_ids": ["nda_mutual#4.1", "nda_mutual#4.2"],
+    "retrieval_keywords": ["injunctive relief", "damages claims", "remedies", "without bond", "Master Services Agreement", "cumulative remedies"],
+    "intent_category": "Remedies",
+    "reasoning_notes": "The two NDA remedy clauses have to be read together. The question also uses 'cut off', so the model must connect the interaction rule, not just name the injunction clause."
+  },
+  {
+    "test_case_id": "TC_015",
+    "question": "Give me the big picture on how our liability is limited across the MSA, the amendment and the NDA.",
+    "question_type": "Summary",
+    "difficulty": "Hard",
+    "expected_answer": "The MSA caps each party's aggregate liability at the fees paid in the prior twelve months (4.1), excludes indirect, incidental and consequential damages (4.2), and carves out breach of confidentiality and gross negligence or willful misconduct from the cap (4.3). Amendment No. 1 replaces the cap with two times (2x) the prior twelve months' fees (1.1) and caps data-breach liability at three times (3x) the annual fees, outside the general cap (1.2). The NDA contains no liability cap.",
+    "ground_truth_context_ids": ["msa_acme_vendor#4.1", "msa_acme_vendor#4.2", "msa_acme_vendor#4.3", "amendment_01_msa#1.1", "amendment_01_msa#1.2"],
+    "retrieval_keywords": ["liability limits", "aggregate liability", "exclusions", "carve-outs", "amendment", "data breach cap"],
+    "intent_category": "Liability Overview",
+    "reasoning_notes": "Needs a broad sweep across five chunks, and the answer must reflect that the caps are mutual, not vendor-only. Tests recall over many chunks and whether the summary stays grounded."
+  },
+  {
+    "test_case_id": "TC_016",
+    "question": "Walk me through how the MSA starts, renews and can be exited early.",
+    "question_type": "Summary",
+    "difficulty": "Medium",
+    "expected_answer": "The initial term is three years from the Effective Date (9.1). The Agreement then renews for successive one-year terms unless either party gives ninety days' notice of non-renewal (9.3). Either party can also terminate early on thirty days' written notice if the other party materially breaches and fails to cure in that period (9.2).",
+    "ground_truth_context_ids": ["msa_acme_vendor#9.1", "msa_acme_vendor#9.2", "msa_acme_vendor#9.3"],
+    "retrieval_keywords": ["term and termination", "initial term", "auto-renewal", "early exit", "material breach", "non-renewal"],
+    "intent_category": "Termination",
+    "reasoning_notes": "A three-part overview across the term article. Tests whether the answer covers all three mechanisms without missing one."
+  },
+  {
+    "test_case_id": "TC_017",
+    "question": "What does the NDA actually cover, and what's excluded from it?",
+    "question_type": "Summary",
+    "difficulty": "Medium",
+    "expected_answer": "The NDA is for exploring a possible software licensing relationship (1.1). Confidential Information includes source code, pricing and product roadmaps, in any form (2.1). Information that is public through no fault of the receiving party is excluded (2.2).",
+    "ground_truth_context_ids": ["nda_mutual#1.1", "nda_mutual#2.1", "nda_mutual#2.2"],
+    "retrieval_keywords": ["NDA scope", "confidential information", "exclusions", "source code", "public information", "purpose"],
+    "intent_category": "Confidentiality",
+    "reasoning_notes": "Overview of the NDA's scope and exclusions, which are split across three articles. Tests coverage of both the inclusion and exclusion sides."
+  },
+  {
+    "test_case_id": "TC_018",
+    "question": "Who owns the software our contractors write for us under Vendor Labs' services? Do we get the IP?",
+    "question_type": "Negative/Unanswerable",
+    "difficulty": "Hard",
+    "expected_answer": "I am sorry, but the provided documentation does not contain information regarding intellectual property ownership of software developed under the services.",
+    "ground_truth_context_ids": [],
+    "retrieval_keywords": ["IP ownership", "intellectual property", "work product", "deliverables", "copyright", "software rights"],
+    "intent_category": "Intellectual Property",
+    "reasoning_notes": "The services and software-development terms are in the context, which makes a weak retriever likely to return the services definition. The correct behaviour is to decline. Tests hallucination resistance."
+  },
+  {
+    "test_case_id": "TC_019",
+    "question": "If we pay within 10 days, do we get any discount on the invoices?",
+    "question_type": "Negative/Unanswerable",
+    "difficulty": "Hard",
+    "expected_answer": "I am sorry, but the provided documentation does not contain information regarding early-payment discounts.",
+    "ground_truth_context_ids": [],
+    "retrieval_keywords": ["early payment discount", "prompt payment", "invoice discount", "pay early", "payment incentive", "net terms"],
+    "intent_category": "Payment Terms",
+    "reasoning_notes": "The payment article exists, so the retriever will return payment chunks with high similarity. Tests whether the model declines instead of inventing a discount."
+  },
+  {
+    "test_case_id": "TC_020",
+    "question": "What uptime percentage does Vendor Labs guarantee for the hosted service?",
+    "question_type": "Negative/Unanswerable",
+    "difficulty": "Hard",
+    "expected_answer": "I am sorry, but the provided documentation does not contain information regarding uptime or service-level guarantees for hosting.",
+    "ground_truth_context_ids": [],
+    "retrieval_keywords": ["uptime", "SLA", "service level agreement", "availability", "hosting", "99.9%"],
+    "intent_category": "Service Levels",
+    "reasoning_notes": "The MSA mentions hosting services, which is a close topical match. The question asks for a specific metric that does not exist in the context. Tests grounding under a near miss."
+  }
+]

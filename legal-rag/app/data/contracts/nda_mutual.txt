@@ -1,0 +1,17 @@
+MUTUAL NON-DISCLOSURE AGREEMENT
+Between Acme Corp and Vendor Labs LLC
+
+ARTICLE 1 - PURPOSE
+1.1 Purpose. The parties wish to explore a possible software licensing relationship.
+
+ARTICLE 2 - CONFIDENTIAL INFORMATION
+2.1 Definition. Confidential Information includes source code, pricing, and product roadmaps disclosed in any form.
+2.2 Exclusions. Information that is public through no fault of the receiving party is not Confidential Information.
+
+ARTICLE 3 - TERM
+3.1 Duration. This NDA lasts two (2) years from the Effective Date.
+3.2 Survival. Obligations for trade secrets survive for as long as the information remains a trade secret.
+
+ARTICLE 4 - REMEDIES
+4.1 Injunctive Relief. A breach may cause irreparable harm, and the non-breaching party may seek an injunction without posting bond.
+4.2 Limitation. Section 4.1 does not limit damages claims under the Master Services Agreement.

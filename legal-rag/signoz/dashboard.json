@@ -1,0 +1,66 @@
+{
+  "title": "Claude Code cost and tokens (legal-rag)",
+  "description": "Daily token consumption by type, daily cost, and the $50/day alert threshold. Best-effort import: SigNoz dashboard schemas change between versions; if import fails, recreate the panels from queries.md.",
+  "tags": ["claude-code", "cost", "legal-rag"],
+  "layout": "grid",
+  "variables": [],
+  "panels": [
+    {
+      "id": "daily-tokens-by-type",
+      "title": "Daily token consumption by type",
+      "panelType": "graph",
+      "chartType": "bar",
+      "stacked": true,
+      "unit": "tokens",
+      "query": {
+        "queryType": "promql",
+        "promql": [
+          {
+            "name": "A",
+            "query": "sum by (type) (increase(claude_code_token_usage_tokens_total[1d]))",
+            "legend": "{{type}}",
+            "disabled": false
+          }
+        ]
+      },
+      "gridPosition": { "x": 0, "y": 0, "w": 8, "h": 6 }
+    },
+    {
+      "id": "daily-cost",
+      "title": "Daily cost (USD)",
+      "panelType": "graph",
+      "chartType": "bar",
+      "unit": "USD",
+      "thresholds": [{ "value": 50, "label": "$50/day limit", "color": "#b91c1c" }],
+      "query": {
+        "queryType": "promql",
+        "promql": [
+          {
+            "name": "A",
+            "query": "sum(increase(claude_code_cost_usage_USD_total[1d]))",
+            "legend": "cost",
+            "disabled": false
+          }
+        ]
+      },
+      "gridPosition": { "x": 8, "y": 0, "w": 4, "h": 6 }
+    },
+    {
+      "id": "cost-alert-state",
+      "title": "Alert: daily cost over $50",
+      "panelType": "value",
+      "query": {
+        "queryType": "promql",
+        "promql": [
+          {
+            "name": "A",
+            "query": "sum(increase(claude_code_cost_usage_USD_total[1d])) > 50",
+            "legend": "firing",
+            "disabled": false
+          }
+        ]
+      },
+      "gridPosition": { "x": 0, "y": 6, "w": 4, "h": 3 }
+    }
+  ]
+}

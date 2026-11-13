@@ -1,0 +1,7 @@
+AMENDMENT NO. 1 TO MASTER SERVICES AGREEMENT
+Amends the Master Services Agreement between Acme Corp and Vendor Labs LLC.
+
+ARTICLE 1 - AMENDMENTS
+1.1 Replacement of Section 4.1. Section 4.1 of the Master Services Agreement is deleted and replaced with: Except as provided in Sections 4.2, 4.3 and 4.4, each party's aggregate liability shall not exceed two times (2x) the fees paid in the twelve (12) months preceding the claim.
+1.2 New Section 4.4 Data Breach. Vendor's liability for a breach of Article 7 is capped at three times (3x) the annual fees and is not subject to Section 4.1.
+1.3 Effect. Except as amended here, the Master Services Agreement remains in full force. Where this Amendment conflicts with the Master Services Agreement, this Amendment controls.

@@ -1,0 +1,21 @@
+# Daily Claude Code cost alert: fires when total spend for the day exceeds $50.
+#
+# Written in Prometheus rule format. In SigNoz, create the same rule under
+# Alerts > New Alert > Metric-based, with:
+#   query:     sum(increase(claude_code_cost_usage_USD_total[1d]))
+#   condition: above 50
+#   evaluate:  every 5m
+# SigNoz's alert import format changes between versions, so the UI is the reliable path.
+
+groups:
+  - name: claude-code-cost
+    rules:
+      - alert: ClaudeCodeDailyCostOver50
+        expr: sum(increase(claude_code_cost_usage_USD_total[1d])) > 50
+        for: 0m
+        labels:
+          severity: warning
+          team: legal-rag
+        annotations:
+          summary: "Claude Code spend is above $50 for the day"
+          description: "Total claude_code.cost.usage over the last 24h is {{ $value | printf \"%.2f\" }} USD."

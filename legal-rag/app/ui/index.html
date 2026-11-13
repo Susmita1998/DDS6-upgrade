@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legal RAG console</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1d2330; --muted:#6b7280; --line:#e5e7eb; --ok:#15803d; --bad:#b91c1c; --accent:#2563eb; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:#111827; color:#fff; display:flex; align-items:center; gap:20px; padding:0 20px; position:sticky; top:0; z-index:5; flex-wrap:wrap; }
+  .brand { font-weight:700; padding:14px 0; }
+  nav.tabs { display:flex; gap:4px; flex:1; }
+  nav.tabs a { color:#cbd5e1; text-decoration:none; padding:14px 14px; border-bottom:3px solid transparent; }
+  nav.tabs a:hover { color:#fff; }
+  nav.tabs a.active { color:#fff; border-bottom-color:#60a5fa; }
+  .svc { font-size:12px; color:#9ca3af; display:flex; gap:12px; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#6b7280; margin-right:4px; }
+  .dot.up { background:#22c55e; } .dot.down { background:#ef4444; }
+  section.tab { padding:16px 20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin-bottom:14px; }
+  .card h2 { font-size:14px; margin:0 0 8px; }
+  .row { display:flex; gap:10px; align-items:flex-start; }
+  textarea { flex:1; font:inherit; padding:10px; border:1px solid var(--line); border-radius:8px; resize:vertical; min-height:60px; }
+  button { font:inherit; background:var(--accent); color:#fff; border:0; border-radius:8px; padding:10px 16px; cursor:pointer; }
+  button:disabled { background:#9ca3af; cursor:not-allowed; }
+  button.ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); padding:6px 10px; font-size:12px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 14px; }
+  .chip { background:#fff; border:1px solid var(--line); border-radius:999px; padding:4px 10px; font-size:12px; cursor:pointer; }
+  .chip:hover { border-color:var(--accent); }
+  .muted { color:var(--muted); font-size:12px; }
+  .grid4 { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .grid8 { display:grid; grid-template-columns:repeat(8, 1fr); gap:12px; }
+  @media (max-width:1000px) { .grid4, .grid8 { grid-template-columns:repeat(2, 1fr); } .grid2 { grid-template-columns:1fr; } }
+  .badge { display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; font-weight:600; }
+  .b-extractive, .b-anthropic { background:#dbeafe; color:#1e40af; }
+  .b-none { background:#fef3c7; color:#92400e; }
+  .PASS { background:#dcfce7; color:var(--ok); } .FAIL { background:#fee2e2; color:var(--bad); }
+  .FIRING { background:#fee2e2; color:var(--bad); }
+  pre { white-space:pre-wrap; background:#0f172a; color:#e2e8f0; padding:10px; border-radius:6px; font-size:13px; margin:0; }
+  ol.hits { list-style:none; margin:0; padding:0; max-height:300px; overflow:auto; }
+  ol.hits li { display:flex; justify-content:space-between; gap:8px; border-bottom:1px solid var(--line); padding:5px 2px; font-size:13px; }
+  ol.hits .s { font-variant-numeric:tabular-nums; color:var(--muted); white-space:nowrap; }
+  .stage h3 { font-size:13px; margin:0 0 6px; display:flex; justify-content:space-between; }
+  .timing { display:grid; grid-template-columns:90px 1fr 80px; gap:8px; align-items:center; font-size:13px; margin:4px 0; }
+  .timing .bar { height:10px; background:var(--accent); border-radius:4px; }
+  .ctx { border-left:3px solid var(--accent); padding:4px 10px; margin:8px 0; }
+  .tile .v { font-size:24px; font-weight:600; margin-top:2px; }
+  .tile .l { color:var(--muted); font-size:12px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { padding:6px 8px; border-bottom:1px solid var(--line); text-align:left; font-size:13px; vertical-align:top; }
+  tr.click { cursor:pointer; } tr.click:hover { background:#f3f4f6; }
+  tr.sel { background:#eff6ff; }
+  .progress { height:8px; background:#e5e7eb; border-radius:4px; overflow:hidden; margin:8px 0; }
+  .progress > div { height:100%; background:var(--accent); width:0; transition:width .3s; }
+  iframe#telemetry-frame { width:100%; height:calc(100vh - 110px); border:1px solid var(--line); border-radius:8px; background:#fff; }
+  .note { font-size:12px; color:var(--muted); margin-top:10px; }
+  .err { color:var(--bad); font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Legal RAG console</div>
+  <nav class="tabs">
+    <a href="#rag" data-tab="rag">1 · Hybrid RAG Live</a>
+    <a href="#telemetry" data-tab="telemetry">2 · Live Telemetry</a>
+    <a href="#eval" data-tab="eval">3 · GoldenSet Evaluation &amp; KPIs</a>
+  </nav>
+  <div class="svc">
+    <span><span class="dot" id="dot-rag"></span>RAG :8100</span>
+    <span><span class="dot" id="dot-col"></span>Collector :8080</span>
+  </div>
+</header>
+
+<!-- Tab 1 -->
+<section class="tab" id="tab-rag">
+  <div class="card">
+    <h2>Ask the contracts</h2>
+    <div class="row">
+      <textarea id="q" rows="2" placeholder="Ask about the MSA, the amendment or the NDA…"></textarea>
+      <button id="ask">Ask</button>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="muted" id="rag-status"></div>
+  </div>
+
+  <div id="rag-out" hidden>
+    <div class="card">
+      <div class="row" style="align-items:center; justify-content:space-between">
+        <div><span class="badge" id="llm-badge"></span> <span class="muted" id="rag-meta"></span></div>
+        <button class="ghost" id="rag-trace" disabled>Open trace in telemetry →</button>
+      </div>
+      <h2 style="margin-top:10px">Answer</h2>
+      <pre id="rag-answer"></pre>
+      <h2 style="margin-top:12px">Citations</h2>
+      <ol class="hits" id="rag-citations"></ol>
+    </div>
+
+    <div class="grid4">
+      <div class="card stage"><h3>Sparse (BM25) <span class="muted" id="n-sparse"></span></h3><ol class="hits" id="st-sparse"></ol></div>
+      <div class="card stage"><h3>Dense (vectors) <span class="muted" id="n-dense"></span></h3><ol class="hits" id="st-dense"></ol></div>
+      <div class="card stage"><h3>Fused (RRF) <span class="muted" id="n-fused"></span></h3><ol class="hits" id="st-fused"></ol></div>
+      <div class="card stage"><h3>Reranked → parents <span class="muted" id="n-reranked"></span></h3><ol class="hits" id="st-reranked"></ol></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h2>Stage timings</h2>
+        <div id="timings"></div>
+      </div>
+      <div class="card">
+        <h2>Context sent to the generator</h2>
+        <div id="context"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Tab 2 -->
+<section class="tab" id="tab-telemetry" hidden>
+  <iframe id="telemetry-frame" title="Live telemetry"></iframe>
+  <p class="note">Embedded from the collector at http://127.0.0.1:8080. <a id="telemetry-open" href="http://127.0.0.1:8080/" target="_blank">Open in a new window</a></p>
+</section>
+
+<!-- Tab 3 -->
+<section class="tab" id="tab-eval" hidden>
+  <div class="card">
+    <div class="row" style="align-items:center; justify-content:space-between">
+      <div>
+        <h2 style="margin:0">Golden set run</h2>
+        <div class="muted" id="eval-status">No run yet.</div>
+      </div>
+      <div class="row" style="align-items:center">
+        <span class="badge" id="eval-mode"></span>
+        <button id="eval-run">Run golden set</button>
+      </div>
+    </div>
+    <div class="progress"><div id="eval-progress"></div></div>
+    <div class="err" id="eval-error"></div>
+  </div>
+
+  <div class="grid8" id="kpis">
+    <div class="card tile"><div class="l">Pass rate</div><div class="v" id="k-pass">–</div></div>
+    <div class="card tile"><div class="l">Context recall</div><div class="v" id="k-recall">–</div></div>
+    <div class="card tile"><div class="l">Context precision</div><div class="v" id="k-precision">–</div></div>
+    <div class="card tile"><div class="l">Faithfulness</div><div class="v" id="k-faith">–</div></div>
+    <div class="card tile"><div class="l">Answer recall</div><div class="v" id="k-ans">–</div></div>
+    <div class="card tile"><div class="l">Answer relevancy</div><div class="v" id="k-rel">–</div></div>
+    <div class="card tile"><div class="l">Negative refusal</div><div class="v" id="k-neg">–</div></div>
+    <div class="card tile"><div class="l">Latency p95</div><div class="v" id="k-lat">–</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>By question type</h2>
+      <table>
+        <thead><tr><th>Type</th><th>Cases</th><th>Pass</th><th>Recall</th><th>Precision</th></tr></thead>
+        <tbody id="by-type"></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>Run history</h2>
+      <table>
+        <thead><tr><th>Run</th><th>Mode</th><th>Pass</th><th>Recall</th><th>Precision</th><th></th></tr></thead>
+        <tbody id="history"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Live results <span class="muted">(click a row for details)</span></h2>
+    <div style="max-height:420px; overflow:auto">
+      <table>
+        <thead><tr><th>ID</th><th>Type</th><th>Difficulty</th><th>Result</th><th>Recall</th><th>Precision</th><th>Faithfulness</th><th>Answer recall</th><th>Relevancy</th><th>Latency</th></tr></thead>
+        <tbody id="cases"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card" id="detail" hidden></div>
+
+  <p class="note">Metrics are lexical proxies: context recall and precision compare retrieved parent clauses with the ground-truth IDs; faithfulness is the share of answer words found in the retrieved context; answer recall is the share of expected-answer words found in the answer; relevancy is the share of question content words found in the answer. A case passes when all ground-truth clauses are retrieved, answer recall is at least 0.6, and the answer is not a refusal. Negative cases pass only when the system refuses.</p>
+</section>
+
+<script>
+const COLLECTOR = "http://127.0.0.1:8080";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pct = v => v == null ? "–" : (v * 100).toFixed(0) + "%";
+const ms = v => v == null ? "–" : v >= 1000 ? (v / 1000).toFixed(2) + " s" : v.toFixed(1) + " ms";
+const getJSON = url => fetch(url).then(r => { if (!r.ok) throw new Error(`${url} → ${r.status}`); return r.json(); });
+const LLM_LABEL = { extractive: "extractive (no LLM key)", anthropic: "Claude", none: "refused: not in documents" };
+
+// ---------- tabs ----------
+function showTab(name) {
+  if (!["rag", "telemetry", "eval"].includes(name)) name = "rag";
+  document.querySelectorAll("[data-tab]").forEach(a => a.classList.toggle("active", a.dataset.tab === name));
+  document.querySelectorAll("section.tab").forEach(s => s.hidden = s.id !== "tab-" + name);
+  if (name === "telemetry" && !$("telemetry-frame").getAttribute("src")) {
+    $("telemetry-frame").src = COLLECTOR + "/";
+  }
+  if (name === "eval") loadHistory();
+}
+window.addEventListener("hashchange", () => showTab(location.hash.slice(1)));
+
+function openTrace(traceId) {
+  $("telemetry-frame").src = `${COLLECTOR}/?trace=${encodeURIComponent(traceId)}`;
+  $("telemetry-open").href = `${COLLECTOR}/?trace=${encodeURIComponent(traceId)}`;
+  location.hash = "telemetry";
+  showTab("telemetry");
+}
+
+async function checkServices() {
+  try { await getJSON("/health"); $("dot-rag").className = "dot up"; } catch { $("dot-rag").className = "dot down"; }
+  try { await fetch(COLLECTOR + "/api/status"); $("dot-col").className = "dot up"; } catch { $("dot-col").className = "dot down"; }
+}
+
+// ---------- tab 1: hybrid RAG live ----------
+async function loadChips() {
+  const golden = await getJSON("/api/golden");
+  const seen = new Set();
+  const picks = golden.filter(c => !seen.has(c.question_type) && seen.add(c.question_type));
+  $("chips").innerHTML = picks.map((c, i) =>
+    `<span class="chip" data-q="${esc(c.question)}">${esc(c.question_type)}: ${esc(c.question.slice(0, 48))}…</span>`).join("");
+}
+
+$("chips").addEventListener("click", e => {
+  const chip = e.target.closest(".chip");
+  if (chip) { $("q").value = chip.dataset.q; ask(); }
+});
+$("ask").addEventListener("click", () => ask());
+$("q").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } });
+
+async function ask() {
+  const question = $("q").value.trim();
+  if (!question) return;
+  $("ask").disabled = true;
+  $("rag-status").textContent = "Retrieving…";
+  try {
+    const r = await fetch("/api/rag/query", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question }) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    renderRag(await r.json());
+    $("rag-status").textContent = "";
+  } catch (e) {
+    $("rag-status").textContent = "Request failed: " + e.message;
+  } finally {
+    $("ask").disabled = false;
+  }
+}
+
+function renderRag(d) {
+  $("rag-out").hidden = false;
+  const t = d.stages.timings_ms;
+  $("llm-badge").textContent = LLM_LABEL[d.llm] || d.llm;
+  $("llm-badge").className = "badge b-" + d.llm;
+  $("rag-meta").textContent = `${d.retrieved_parent_ids.length} clauses retrieved · ${ms(t.total)} end to end`;
+  $("rag-trace").disabled = false;
+  $("rag-trace").onclick = () => openTrace(d.trace_id);
+  $("rag-answer").textContent = d.answer;
+  $("rag-citations").innerHTML = d.citations.length
+    ? d.citations.map(c => `<li><span>${esc(c.heading)}</span><span class="s">score ${c.score}</span></li>`).join("")
+    : `<li class="muted">No citations: the documents do not support an answer.</li>`;
+
+  const list = rows => rows.length
+    ? rows.map(r => `<li><span title="${esc(r.child_id)}">${esc(r.heading)}</span><span class="s">${r.score}</span></li>`).join("")
+    : `<li class="muted">none</li>`;
+  for (const [key, id] of [["sparse", "sparse"], ["dense", "dense"], ["fused", "fused"], ["reranked", "reranked"]]) {
+    $("st-" + id).innerHTML = list(d.stages[key]);
+    $("n-" + id).textContent = `${d.stages[key].length} rows`;
+  }
+
+  const stages = [["sparse", "BM25"], ["dense", "dense"], ["fuse", "RRF"], ["rerank", "rerank"]];
+  const max = Math.max(...stages.map(([k]) => t[k]), 0.01);
+  $("timings").innerHTML = stages.map(([k, label]) =>
+    `<div class="timing"><span>${label}</span><div><div class="bar" style="width:${(t[k] / max * 100).toFixed(1)}%"></div></div><span>${ms(t[k])}</span></div>`
+  ).join("") + `<div class="muted" style="margin-top:6px">total ${ms(t.total)} · trace <code>${esc(d.trace_id)}</code></div>`;
+
+  $("context").innerHTML = d.parents.length
+    ? d.parents.map(p => `<div class="ctx"><div class="muted">${esc(p.heading)} · score ${p.score}</div>${esc(p.text)}</div>`).join("")
+    : `<p class="muted">No clauses passed to the generator.</p>`;
+}
+
+// ---------- tab 3: golden set evaluation ----------
+let selectedCase = null;
+let lastRunsKey = "";
+let lastStatus = null;
+
+$("eval-run").addEventListener("click", async () => {
+  $("eval-run").disabled = true;
+  const r = await fetch("/api/eval/run", { method: "POST" });
+  if (r.status === 409) $("eval-error").textContent = "An evaluation is already running.";
+  else if (!r.ok) $("eval-error").textContent = "Could not start the run: HTTP " + r.status;
+  else $("eval-error").textContent = "";
+  pollEval();
+});
+
+async function pollEval() {
+  try {
+    renderEval(await getJSON("/api/eval/status"));
+  } catch (e) {
+    $("eval-status").textContent = "Evaluation endpoint unreachable: " + e.message;
+  }
+}
+
+function renderEval(s) {
+  $("eval-run").disabled = s.running;
+  $("eval-mode").textContent = s.mode ? "mode: " + s.mode : "";
+  $("eval-progress").style.width = (s.total ? s.done / s.total * 100 : 0) + "%";
+  if (s.error) $("eval-error").textContent = "Run failed: " + s.error;
+  if (s.running) $("eval-status").textContent = `Running ${s.done}/${s.total} cases…`;
+  else if (s.run_id) $("eval-status").textContent = `Run ${s.run_id} finished: ${s.done}/${s.total} cases.`;
+
+  const m = s.summary || {};
+  $("k-pass").textContent = pct(m.pass_rate);
+  $("k-recall").textContent = pct(m.context_recall);
+  $("k-precision").textContent = pct(m.context_precision);
+  $("k-faith").textContent = pct(m.faithfulness);
+  $("k-ans").textContent = pct(m.answer_recall);
+  $("k-rel").textContent = pct(m.answer_relevancy);
+  $("k-neg").textContent = pct(m.negative_refusal_rate);
+  $("k-lat").textContent = ms(m.latency_p95_ms);
+
+  $("by-type").innerHTML = Object.entries(m.by_type || {}).map(([t, v]) =>
+    `<tr><td>${esc(t)}</td><td>${v.count}</td><td>${pct(v.pass_rate)}</td><td>${pct(v.context_recall)}</td><td>${pct(v.context_precision)}</td></tr>`).join("");
+
+  $("cases").innerHTML = s.cases.map(c =>
+    `<tr class="click ${c.test_case_id === selectedCase ? "sel" : ""}" data-id="${esc(c.test_case_id)}">
+       <td>${esc(c.test_case_id)}</td><td>${esc(c.question_type)}</td><td>${esc(c.difficulty)}</td>
+       <td><span class="badge ${c.passed ? "PASS" : "FAIL"}">${c.passed ? "PASS" : "FAIL"}</span></td>
+       <td>${pct(c.context_recall)}</td><td>${pct(c.context_precision)}</td><td>${pct(c.faithfulness)}</td>
+       <td>${pct(c.answer_recall)}</td><td>${pct(c.answer_relevancy)}</td><td>${ms(c.latency_ms)}</td>
+     </tr>`).join("");
+
+  if (selectedCase) renderDetail(s.cases.find(c => c.test_case_id === selectedCase), s.trace_id);
+}
+
+$("cases").addEventListener("click", e => {
+  const tr = e.target.closest("tr[data-id]");
+  if (!tr) return;
+  selectedCase = tr.dataset.id;
+  if (lastStatus) renderEval(lastStatus);
+});
+
+function renderDetail(c, runTrace) {
+  if (!c) { $("detail").hidden = true; return; }
+  $("detail").hidden = false;
+  $("detail").innerHTML = `
+    <div class="row" style="align-items:center; justify-content:space-between">
+      <h2 style="margin:0">${esc(c.test_case_id)} · ${esc(c.question_type)} · ${esc(c.difficulty)}</h2>
+      <button class="ghost" id="detail-trace" ${runTrace ? "" : "disabled"}>Open run trace in telemetry →</button>
+    </div>
+    <div class="grid2" style="margin-top:10px">
+      <div>
+        <h2>Question</h2><pre>${esc(c.question)}</pre>
+        <h2 style="margin-top:10px">Expected answer</h2><pre>${esc(c.expected_answer)}</pre>
+      </div>
+      <div>
+        <h2>Generated answer <span class="badge b-${esc(c.llm)}">${esc(LLM_LABEL[c.llm] || c.llm)}</span></h2><pre>${esc(c.answer)}</pre>
+        <h2 style="margin-top:10px">Clauses: retrieved vs ground truth</h2>
+        <pre>retrieved:    ${esc(c.retrieved_ids.join(", ") || "none")}
+ground truth: ${esc(c.ground_truth_context_ids.join(", ") || "none (negative case)")}</pre>
+      </div>
+    </div>`;
+  const btn = $("detail-trace");
+  if (btn && runTrace) btn.onclick = () => openTrace(runTrace);
+}
+
+async function loadHistory() {
+  const runs = await getJSON("/api/eval/runs");
+  const key = JSON.stringify(runs.map(r => r.run_id));
+  if (key === lastRunsKey) return;
+  lastRunsKey = key;
+  $("history").innerHTML = runs.length ? runs.map(r => `
+    <tr><td><code>${esc(r.run_id)}</code></td><td>${esc(r.mode)}</td><td>${pct(r.summary.pass_rate)}</td>
+        <td>${pct(r.summary.context_recall)}</td><td>${pct(r.summary.context_precision)}</td>
+        <td><button class="ghost" data-trace="${esc(r.trace_id)}">trace</button></td></tr>`).join("")
+    : `<tr><td colspan="6" class="muted">No saved runs yet.</td></tr>`;
+}
+$("history").addEventListener("click", e => {
+  const b = e.target.closest("button[data-trace]");
+  if (b) openTrace(b.dataset.trace);
+});
+
+// Poll the evaluation status. It is cheap, so the page stays live during a run.
+setInterval(async () => {
+  if (!$("tab-eval").hidden) {
+    try { lastStatus = await getJSON("/api/eval/status"); renderEval(lastStatus); } catch {}
+  }
+}, 700);
+
+// ---------- boot ----------
+showTab(location.hash.slice(1) || "rag");
+loadChips();
+const deepQuestion = new URLSearchParams(location.search).get("q");  // e.g. /ui?q=...#rag
+if (deepQuestion) { $("q").value = deepQuestion; ask(); }
+checkServices();
+setInterval(checkServices, 10000);
+</script>
+</body>
+</html>

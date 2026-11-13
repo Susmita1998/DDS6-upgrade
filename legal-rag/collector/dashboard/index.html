@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legal RAG telemetry</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1d2330; --muted:#6b7280; --line:#e5e7eb; --ok:#15803d; --bad:#b91c1c; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.4 system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:14px 20px; background:#111827; color:#fff; display:flex; justify-content:space-between; align-items:center; }
+  header .sub { color:#9ca3af; margin-left:8px; font-size:12px; }
+  main { padding:16px 20px; display:grid; gap:16px; grid-template-columns:repeat(12, 1fr); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+  .span-12 { grid-column:span 12; } .span-8 { grid-column:span 8; } .span-4 { grid-column:span 4; }
+  @media (max-width:900px) { .span-8, .span-4 { grid-column:span 12; } }
+  h2 { font-size:14px; margin:0 0 10px; }
+  .tiles { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; }
+  .tile .v { font-size:24px; font-weight:600; margin-top:4px; }
+  .tile .l { color:var(--muted); font-size:12px; }
+  .badge { padding:3px 10px; border-radius:999px; font-weight:600; font-size:12px; }
+  .FIRING { background:#fee2e2; color:var(--bad); }
+  .OK { background:#dcfce7; color:var(--ok); }
+  canvas { width:100%; height:260px; display:block; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { padding:6px 8px; border-bottom:1px solid var(--line); text-align:left; font-size:13px; }
+  tr.click { cursor:pointer; } tr.click:hover { background:#f3f4f6; }
+  .flame { position:relative; background:#fafafa; border:1px solid var(--line); border-radius:6px; overflow:hidden; min-height:40px; }
+  .bar { position:absolute; height:18px; line-height:18px; font-size:11px; color:#fff; padding:0 4px; white-space:nowrap; overflow:hidden; border-radius:3px; cursor:pointer; }
+  .bar.sel { outline:2px solid #111827; outline-offset:1px; }
+  pre { background:#0f172a; color:#e2e8f0; padding:10px; border-radius:6px; overflow:auto; max-height:240px; font-size:12px; white-space:pre-wrap; margin:0; }
+  .muted { color:var(--muted); font-size:12px; }
+  .legend label { margin-right:14px; font-size:12px; }
+  .synthetic { background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:6px; font-size:12px; margin-left:6px; }
+  input[type=text], #traceSearch { padding:6px 8px; border:1px solid var(--line); border-radius:6px; width:380px; font:inherit; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px; }
+  @media (max-width:900px) { .grid2, .tiles { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <div><strong>Legal RAG telemetry</strong><span class="sub">stand-in for SigNoz · OTLP/gRPC :4317</span></div>
+  <div id="status" class="sub">connecting…</div>
+</header>
+<main>
+  <section class="card span-12">
+    <div class="tiles">
+      <div class="tile"><div class="l">Today's cost (USD, so far)</div><div class="v" id="tCost">–</div></div>
+      <div class="tile"><div class="l">Alert: daily cost over $<span id="limit">50</span></div><div class="v"><span class="badge" id="alert">–</span></div></div>
+      <div class="tile"><div class="l">Today's tokens (all types)</div><div class="v" id="tTokens">–</div></div>
+      <div class="tile"><div class="l">Traces / logs / metric points</div><div class="v" id="tCounts">–</div></div>
+    </div>
+  </section>
+
+  <section class="card span-8">
+    <h2>Daily token consumption <span id="synth"></span></h2>
+    <div class="legend" id="tokLegend"></div>
+    <canvas id="tokChart"></canvas>
+  </section>
+  <section class="card span-4">
+    <h2>Daily cost vs limit</h2>
+    <canvas id="costChart"></canvas>
+  </section>
+
+  <section class="card span-12">
+    <h2>Traces</h2>
+    <input type="text" id="traceSearch" placeholder="Paste a trace_id and press Enter">
+    <div style="max-height:260px;overflow:auto;margin-top:8px">
+      <table>
+        <thead><tr><th>Trace</th><th>Root span</th><th>Duration</th><th>Spans</th><th>Errors</th><th>Started</th></tr></thead>
+        <tbody id="traces"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card span-12" id="detail" hidden>
+    <h2>Trace <span class="muted" id="dTrace"></span> · <span id="dDur"></span></h2>
+    <div class="flame" id="flame"></div>
+    <div class="grid2">
+      <div><h2>Selected span</h2><pre id="spanInfo">Click a bar in the flamegraph.</pre></div>
+      <div><h2>Logs in this trace</h2><pre id="logs"></pre></div>
+    </div>
+  </section>
+
+  <section class="card span-12">
+    <h2>Latency by operation (ms)</h2>
+    <table>
+      <thead><tr><th>Operation</th><th>Count</th><th>p50</th><th>p95</th><th>Max</th></tr></thead>
+      <tbody id="summary"></tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+const COLORS = { input: "#2563eb", output: "#f59e0b", cacheRead: "#10b981", cacheCreation: "#8b5cf6" };
+const hiddenTypes = new Set();
+let daily = null, currentTrace = null;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmtTokens = n => n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e3 ? (n / 1e3).toFixed(1) + "k" : String(Math.round(n));
+const fmtMs = ms => ms >= 1000 ? (ms / 1000).toFixed(2) + " s" : ms.toFixed(1) + " ms";
+const fmtTime = ns => new Date(ns / 1e6).toLocaleString();
+const getJSON = url => fetch(url).then(r => { if (!r.ok) throw new Error(`${url} → ${r.status}`); return r.json(); });
+
+async function refresh() {
+  try {
+    const [status, dailyData, traces, summary] = await Promise.all([
+      getJSON("/api/status"), getJSON("/api/metrics/daily?days=7"), getJSON("/api/traces?limit=30"), getJSON("/api/summary")
+    ]);
+    renderStatus(status); renderDaily(dailyData); renderTraces(traces); renderSummary(summary);
+    $("status").textContent = "live · updated " + new Date().toLocaleTimeString();
+  } catch (e) {
+    $("status").textContent = "collector unreachable: " + e.message;
+  }
+}
+
+function renderStatus(s) {
+  $("tCounts").textContent = `${s.traces} / ${s.logs} / ${s.metric_points}`;
+}
+
+function renderDaily(d) {
+  daily = d;
+  const last = d.labels.length - 1;
+  const todayCost = d.cost[last];
+  const todayTokens = Object.values(d.tokens).reduce((sum, arr) => sum + arr[last], 0);
+  $("tCost").textContent = "$" + todayCost.toFixed(2);
+  $("tTokens").textContent = fmtTokens(todayTokens);
+  $("limit").textContent = d.cost_limit;
+  $("alert").textContent = d.alert.state;
+  $("alert").className = "badge " + d.alert.state;
+  $("synth").innerHTML = d.synthetic ? '<span class="synthetic">synthetic demo data (demo.synthetic=true)</span>' : "";
+  $("tokLegend").innerHTML = Object.keys(COLORS).map(t =>
+    `<label><input type="checkbox" data-t="${t}" ${hiddenTypes.has(t) ? "" : "checked"}> <span style="color:${COLORS[t]}">■</span> ${t}</label>`
+  ).join("");
+  drawTokens(); drawCost();
+}
+
+$("tokLegend").addEventListener("change", e => {
+  const t = e.target.dataset.t;
+  if (e.target.checked) hiddenTypes.delete(t); else hiddenTypes.add(t);
+  drawTokens();
+});
+
+function setupCanvas(c) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = c.clientWidth, h = c.clientHeight;
+  c.width = w * dpr; c.height = h * dpr;
+  const ctx = c.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  ctx.font = "11px system-ui";
+  return { ctx, w, h };
+}
+
+function axes(ctx, pad, w, h, max, fmt) {
+  ctx.strokeStyle = "#e5e7eb"; ctx.fillStyle = "#6b7280"; ctx.textAlign = "right";
+  for (let i = 0; i <= 4; i++) {
+    const v = max * i / 4, y = pad.t + (h - pad.t - pad.b) * (1 - i / 4);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+    ctx.fillText(fmt(v), pad.l - 6, y + 4);
+  }
+}
+
+function drawTokens() {
+  if (!daily) return;
+  const { ctx, w, h } = setupCanvas($("tokChart"));
+  const labels = daily.labels;
+  const types = Object.keys(COLORS).filter(t => !hiddenTypes.has(t));
+  const totals = labels.map((_, i) => types.reduce((s, t) => s + (daily.tokens[t]?.[i] ?? 0), 0));
+  const max = Math.max(1, ...totals) * 1.1;
+  const pad = { l: 56, r: 10, t: 10, b: 24 }, pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+  axes(ctx, pad, w, h, max, fmtTokens);
+  const step = pw / labels.length, bw = step * 0.6;
+  labels.forEach((lab, i) => {
+    const x = pad.l + i * step + (step - bw) / 2;
+    let y = pad.t + ph;
+    for (const t of types) {
+      const v = daily.tokens[t]?.[i] ?? 0, bh = v / max * ph;
+      ctx.fillStyle = COLORS[t]; ctx.fillRect(x, y - bh, bw, bh); y -= bh;
+    }
+    ctx.fillStyle = "#6b7280"; ctx.textAlign = "center"; ctx.fillText(lab.slice(5), x + bw / 2, h - 6);
+  });
+}
+
+function drawCost() {
+  if (!daily) return;
+  const { ctx, w, h } = setupCanvas($("costChart"));
+  const labels = daily.labels, costs = daily.cost, limit = daily.cost_limit;
+  const max = Math.max(limit * 1.2, ...costs);
+  const pad = { l: 48, r: 10, t: 10, b: 24 }, pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+  axes(ctx, pad, w, h, max, v => "$" + v.toFixed(0));
+  const step = pw / labels.length, bw = step * 0.6;
+  costs.forEach((c, i) => {
+    const bh = c / max * ph, x = pad.l + i * step + (step - bw) / 2;
+    ctx.fillStyle = c > limit ? "#b91c1c" : "#2563eb";
+    ctx.fillRect(x, pad.t + ph - bh, bw, bh);
+    ctx.fillStyle = "#6b7280"; ctx.textAlign = "center"; ctx.fillText(labels[i].slice(5), x + bw / 2, h - 6);
+  });
+  const ly = pad.t + ph - limit / max * ph;
+  ctx.setLineDash([6, 4]); ctx.strokeStyle = "#111827";
+  ctx.beginPath(); ctx.moveTo(pad.l, ly); ctx.lineTo(w - pad.r, ly); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = "#111827"; ctx.textAlign = "left"; ctx.fillText(`limit $${limit}`, pad.l + 4, ly - 4);
+}
+
+function renderTraces(list) {
+  $("traces").innerHTML = list.map(t =>
+    `<tr class="click" data-id="${esc(t.trace_id)}">
+       <td><code>${esc(t.trace_id.slice(0, 12))}…</code></td>
+       <td>${esc(t.root || "–")}</td>
+       <td>${fmtMs(t.duration_ms)}</td>
+       <td>${t.span_count}</td>
+       <td>${t.errors || ""}</td>
+       <td class="muted">${fmtTime(t.start_ns)}</td>
+     </tr>`).join("");
+}
+
+$("traces").addEventListener("click", e => {
+  const tr = e.target.closest("tr[data-id]");
+  if (tr) loadTrace(tr.dataset.id);
+});
+
+$("traceSearch").addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.value.trim()) loadTrace(e.target.value.trim());
+});
+
+const slowColor = (ms, total) => ms / total > 0.5 ? "#b45309" : ms / total > 0.2 ? "#2563eb" : "#64748b";
+
+async function loadTrace(id) {
+  let d;
+  try { d = await getJSON(`/api/traces/${encodeURIComponent(id)}`); }
+  catch (e) { alert("Trace not found: " + id); return; }
+  currentTrace = d;
+  $("detail").hidden = false;
+  $("dTrace").textContent = d.trace_id;
+  $("dDur").textContent = fmtMs(d.duration_ms);
+  const flame = $("flame");
+  const rows = Math.max(...d.spans.map(s => s.depth)) + 1;
+  flame.style.height = rows * 24 + 8 + "px";
+  flame.innerHTML = d.spans.map((s, i) => {
+    const left = s.start_ms / d.duration_ms * 100;
+    const width = Math.max(s.duration_ms / d.duration_ms * 100, 0.4);
+    const color = s.status === "ERROR" ? "#b91c1c" : slowColor(s.duration_ms, d.duration_ms);
+    return `<div class="bar" data-i="${i}" style="left:${left}%;width:${width}%;top:${4 + s.depth * 24}px;background:${color}"
+              title="${esc(s.name)} ${fmtMs(s.duration_ms)}">${esc(s.name)} · ${fmtMs(s.duration_ms)}</div>`;
+  }).join("");
+  $("spanInfo").textContent = "Click a bar in the flamegraph.";
+  $("logs").textContent = d.logs.length
+    ? d.logs.map(l => `${new Date(l.ts_ns / 1e6).toISOString().slice(11, 23)} ${l.severity.padEnd(5)} ${l.body}`).join("\n")
+    : "No logs for this trace.";
+}
+
+$("flame").addEventListener("click", e => {
+  const bar = e.target.closest(".bar");
+  if (!bar || !currentTrace) return;
+  document.querySelectorAll(".bar.sel").forEach(b => b.classList.remove("sel"));
+  bar.classList.add("sel");
+  const s = currentTrace.spans[+bar.dataset.i];
+  const spanLogs = currentTrace.logs.filter(l => l.span_id === s.span_id);
+  $("spanInfo").textContent = JSON.stringify({
+    name: s.name, service: s.service, kind: s.kind, status: s.status,
+    start_ms: +s.start_ms.toFixed(2), duration_ms: +s.duration_ms.toFixed(2), attributes: s.attributes,
+    logs_on_this_span: spanLogs.map(l => l.body)
+  }, null, 2);
+});
+
+function renderSummary(rows) {
+  $("summary").innerHTML = rows.map(r =>
+    `<tr><td>${esc(r.name)}</td><td>${r.count}</td><td>${fmtMs(r.p50)}</td><td>${fmtMs(r.p95)}</td><td>${fmtMs(r.max)}</td></tr>`
+  ).join("");
+}
+
+window.addEventListener("resize", () => { drawTokens(); drawCost(); });
+refresh();
+setInterval(refresh, 5000);
+
+// Deep link from the console: ?trace=<id> opens that trace's flamegraph directly.
+const traceParam = new URLSearchParams(location.search).get("trace");
+if (traceParam) loadTrace(traceParam);
+</script>
+</body>
+</html>
